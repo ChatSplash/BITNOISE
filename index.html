@@ -175,30 +175,6 @@ body.awake .launch:before{animation:sheen 3.4s ease-in-out infinite}
   0%,55%{transform:translateX(-120%)}
   80%,100%{transform:translateX(120%)}
 }
-.shell{
-  display:none;position:relative;z-index:2;min-height:100svh;
-  padding:max(12px,env(safe-area-inset-top)) 10px max(14px,env(safe-area-inset-bottom));
-}
-body.launched .page{display:none}
-body.launched .shell{display:block}
-.appbar{
-  height:58px;max-width:1180px;margin:0 auto 10px;border:1px solid rgba(105,255,208,.16);
-  background:rgba(4,10,17,.72);border-radius:22px;padding:9px 10px;
-  display:flex;align-items:center;justify-content:space-between;
-}
-.appbar strong{letter-spacing:.1em;font-size:13px}
-.home{width:auto;padding:12px 16px;font-size:12px;background:linear-gradient(180deg,#252d3c,#0d1019);box-shadow:0 7px 0 #03050b}
-.frame{
-  height:calc(100svh - 80px);max-width:1180px;margin:0 auto;
-  border:1px solid rgba(105,255,208,.22);border-radius:26px;overflow:hidden;position:relative;
-  background:radial-gradient(circle at 50% 20%,rgba(105,255,208,.14),transparent 32%),rgba(2,6,11,.8);
-}
-iframe{display:none;width:100%;height:100%;border:0;background:#02060a}
-.placeholder{position:absolute;inset:0;display:grid;place-items:center;padding:18px;text-align:center}
-.box{width:min(720px,94%);padding:30px 18px;border-radius:27px;border:1px dashed rgba(105,255,208,.34);background:rgba(0,0,0,.22)}
-.box h2{margin:0 0 10px;font-size:clamp(28px,8vw,58px);letter-spacing:.08em}
-.box p{color:var(--muted);line-height:1.5}
-code{color:var(--mint);background:rgba(105,255,208,.08);border-radius:8px;padding:3px 7px}
 .touch{
   position:fixed;width:170px;height:170px;border-radius:50%;pointer-events:none;z-index:3;
   background:radial-gradient(circle,rgba(105,255,208,.35),rgba(181,68,255,.12),transparent 68%);
@@ -257,28 +233,8 @@ code{color:var(--mint);background:rgba(105,255,208,.08);border-radius:8px;paddin
   </section>
 </main>
 
-<section class="shell">
-  <div class="appbar">
-    <strong>BITNOISE CORE BAY</strong>
-    <button class="home" onclick="goHome()">Home</button>
-  </div>
-
-  <div class="frame">
-    <iframe id="noiseFrame"></iframe>
-    <div id="placeholder" class="placeholder">
-      <div class="box">
-        <h2>NOISEBIT.HTML</h2>
-        <p>This is the full-screen core app slot.</p>
-        <p>Put your workstation file beside this page as <code>noisebit.html</code>, then the launch button embeds it here.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
 <script>
 (function(){
-  var frame=document.getElementById('noiseFrame');
-  var holder=document.getElementById('placeholder');
   var canvas=document.getElementById('fx');
   var ctx=canvas.getContext('2d');
 
@@ -309,7 +265,7 @@ code{color:var(--mint);background:rgba(105,255,208,.08);border-radius:8px;paddin
       setTimeout(function(){
         btn.classList.remove('charging');
         btn.querySelector('span').textContent='Launch';
-      },1800);
+      },1400);
 
       return;
     }
@@ -317,26 +273,15 @@ code{color:var(--mint);background:rgba(105,255,208,.08);border-radius:8px;paddin
     fadeAudio();
 
     setTimeout(function(){
-      document.body.classList.add('launched');
-      holder.style.display='grid';
-      frame.style.display='none';
-      frame.src='noisebit.html';
-      frame.onload=function(){
-        holder.style.display='none';
-        frame.style.display='block';
-      };
-    },420);
-  };
-
-  window.goHome=function(){
-    document.body.classList.remove('launched');
-    frame.removeAttribute('src');
-    frame.style.display='none';
-    holder.style.display='grid';
+      window.location.href='bitnoise.html';
+    },300);
   };
 
   document.addEventListener('pointerdown',function(e){
     touchGlow(e.clientX,e.clientY);
+
+    if(e.target.closest('.launch')) return;
+
     wake(e);
   },{passive:true});
 
@@ -344,7 +289,7 @@ code{color:var(--mint);background:rgba(105,255,208,.08);border-radius:8px;paddin
     var now=performance.now();
     if(now-lastMove>18){
       lastMove=now;
-      wake(e);
+      if(!e.target.closest('.launch')) wake(e);
       trail(e.clientX,e.clientY,5);
     }
   },{passive:true});
@@ -360,22 +305,33 @@ code{color:var(--mint);background:rgba(105,255,208,.08);border-radius:8px;paddin
 
   function startAudio(){
     try{
+      if(audioCtx) return;
+
       var AC=window.AudioContext||window.webkitAudioContext;
       audioCtx=new AC();
+
+      if(audioCtx.state==='suspended'){
+        audioCtx.resume();
+      }
 
       master=audioCtx.createGain();
       master.gain.value=0.0001;
       master.connect(audioCtx.destination);
 
-      master.gain.exponentialRampToValueAtTime(0.115,audioCtx.currentTime+1.2);
+      master.gain.exponentialRampToValueAtTime(0.12,audioCtx.currentTime+0.5);
 
-      setTimeout(playNote,650);
+      playNote();
+      setTimeout(playNote,420);
       timer=setInterval(playNote,1450);
     }catch(err){}
   }
 
   function playNote(){
     if(!audioCtx||!master)return;
+
+    if(audioCtx.state==='suspended'){
+      audioCtx.resume();
+    }
 
     var scale=[110,130.81,146.83,164.81,196,220,261.63];
     var pattern=[0,0,2,4,1,0,5,3];
@@ -423,10 +379,17 @@ code{color:var(--mint);background:rgba(105,255,208,.08);border-radius:8px;paddin
 
   function fadeAudio(){
     if(master&&audioCtx){
-      try{master.gain.exponentialRampToValueAtTime(0.0001,audioCtx.currentTime+.35)}catch(e){}
+      try{
+        master.gain.cancelScheduledValues(audioCtx.currentTime);
+        master.gain.setValueAtTime(master.gain.value,audioCtx.currentTime);
+        master.gain.exponentialRampToValueAtTime(0.0001,audioCtx.currentTime+.28);
+      }catch(e){}
     }
     if(timer){clearInterval(timer);timer=null}
   }
+
+  window.addEventListener('pagehide',fadeAudio);
+  window.addEventListener('beforeunload',fadeAudio);
 
   function noteFlash(){
     beatEnergy=1;
